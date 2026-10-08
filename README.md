@@ -36,7 +36,7 @@ Este repositório transforma a ideia conceitual do MVP (ver [apresentação](doc
 |---|---|---|
 | 1 | [Requisitos Funcionais, Histórias de Usuário e Regras de Negócio](docs/01-requisitos-funcionais.md) | RF, US com critérios de aceite em BDD (Dado/Quando/Então) e RN |
 | 2 | [Requisitos Não Funcionais](docs/02-requisitos-nao-funcionais.md) | RNF mensuráveis: desempenho, usabilidade, disponibilidade, segurança, manutenibilidade |
-| 3 | [Prototipação de Interfaces](docs/03-prototipacao.md) | Fluxo de navegação e wireframes das telas mobile |
+| 3 | [Prototipação de Interfaces](docs/03-prototipacao.md) | Protótipo no [Figma](https://www.figma.com/design/49nWhL3pQQirvTCHLlyNTN/OrcaFacil-Prototipo-MVP) (fonte de verdade da interface): mapa de navegação, componentes, 20 telas e estados, layout do PDF |
 | 4 | [Arquitetura de Software](docs/04-arquitetura.md) + [ADRs](docs/adr/README.md) | Visão geral da arquitetura e Registros de Decisão de Arquitetura |
 | 5 | [Modelagem de Dados (DER)](docs/05-modelagem-dados.md) | Diagrama Entidade-Relacionamento, dicionário de dados e esquema IndexedDB |
 
