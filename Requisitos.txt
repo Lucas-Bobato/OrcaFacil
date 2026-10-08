@@ -1,0 +1,35 @@
+Requisitos Funcionais
+
+RF01- O sistema deve permitir cadastro de usuário.
+RF02- O sistema deve permitir a inserção dos dados do cliente(Nome e informações.
+RF03- O sistema devera permitir a adição de múltiplos serviços com precificação individual.
+RF04- O sistema devera calcular e exibir automaticamente a precificação total dos serviços.
+RF05- O sistema devera permitir a inserção do prazo para conclusão do serviço.
+RF06- O sistema devera permitir a inserção dos dados do profissional(Nome/Empresa).
+RF07- O sistema devera gerar um PDF estruturado contendo as informações preenchidas.
+RF08- O sistema devera permitir o download do PDF gerado.
+
+US01 - Como prestador de serviço eu adiciono os itens de serviços que serão realizados
+Critérios de Aceites - Adicionar 1 item: Dado que estou na tela de detalhamento do orçamento, quando eu preencho a descrição e os valores e clico em adicionar o item deve aparecer na lista de serviços a serem realizados.
+
+US02 - Como prestador de serviço eu quero gerar um PDF organizado com os dados preenchidos e ser capaz de realizar o download do mesmo.
+Critérios de Aceites - PDF gerado com sucesso: Dado que preenchi todos os campos obrigatórios eu devo ser capaz de clicar no botão "Gerar PDF" e então o sistema deve me retornar o PDF estruturado corretamente com os dados preenchidos.
+Download do arquivo: Dado que o PDF já foi gerado anteriormente eu devo ser capaz de executar o download desse PDF no meu dispositivo.
+
+Regras de Negocio
+
+RN01 - Campos Obrigatórios: O botão de gerar PDF so poderá ser liberado após conter o mínimo de dados essenciais: nome do profissional responsável/Empresa, Nome do cliente, no mínimo um item de serviço a ser realizado com um valor maior que R$ 0,00.
+
+RN02 - Calculo total: O campo responsável pelo valor total a ser cobrado não devera ser editável ele devera ser referente a soma de todos os valores de serviços que forem colocados não podendo ser editado manualmente.
+
+RN03 - Padrão Monetário: Os valores inseridos deverão ser formatados automaticamente para a moeda local(BRL).
+
+Requisitos Não funcionas
+
+RNF01 - A interface deve ser 100% otimizada para dispositivos mobiles com botões clicáveis otimizados para serem Responsivos ao dispositivo utilizado.
+
+RNF02 - A geração do PDF deve ser concluída e renderizada na tela do usuário em ate 2 segundos após o clique.
+
+RNF03 - O arquivo PDF devera ser otimizado para envio ocupando ate um máximo de 3mbs
+
+RNF04 - Todo o funcionamento do aplicativo devera ocorrer de forma local no dispositivo sendo utilizado, garantindo o uso mesmo sem conexão a internet.
