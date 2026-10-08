@@ -3,7 +3,7 @@
 > **Seu trabalho merece um orçamento profissional.**
 > Aplicação web mobile-first para que prestadores de serviço autônomos (pintores, pedreiros, eletricistas…) montem um orçamento, vejam o total calculado automaticamente e gerem um **PDF profissional** pronto para enviar pelo WhatsApp.
 
-Este repositório transforma a ideia conceitual do MVP (ver [apresentação](docs/apresentacao/OrcaFacil-apresentacao.pptx)) em uma documentação técnica estruturada.
+Este repositório transforma a ideia conceitual do MVP (ver [apresentação](docs/material-original/OrcaFacil-apresentacao.pptx)) em uma documentação técnica estruturada.
 
 ---
 
@@ -85,7 +85,6 @@ Este repositório transforma a ideia conceitual do MVP (ver [apresentação](doc
 ```
 .
 ├── README.md
-├── Requisitos.txt                      # levantamento inicial (versão original)
 └── docs/
     ├── 01-requisitos-funcionais.md
     ├── 02-requisitos-nao-funcionais.md
@@ -99,8 +98,9 @@ Este repositório transforma a ideia conceitual do MVP (ver [apresentação](doc
     │   ├── ADR-003-banco-de-dados-indexeddb-dexie.md
     │   ├── ADR-004-geracao-pdf-pdfmake.md
     │   └── ADR-005-hospedagem-vercel.md
-    └── apresentacao/
-        └── OrcaFacil-apresentacao.pptx
+    └── material-original/                  # insumos originais (pitch e levantamento inicial)
+        ├── OrcaFacil-apresentacao.pptx
+        └── levantamento-inicial-requisitos.txt
 ```
 
 > Os diagramas usam [Mermaid](https://mermaid.js.org/), renderizado nativamente pelo GitHub.

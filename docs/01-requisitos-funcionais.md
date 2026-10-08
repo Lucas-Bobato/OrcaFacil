@@ -13,21 +13,21 @@ Prioridade segundo **MoSCoW**: **M** = Must (obrigatório no MVP), **S** = Shoul
 
 | ID | Requisito | Prioridade | Origem |
 |---|---|---|---|
-| **RF01** | O sistema deve permitir o **cadastro do perfil do profissional** (nome, nome da empresa, telefone/WhatsApp, e-mail, CPF/CNPJ opcional), armazenado localmente no aparelho e reutilizado em todos os orçamentos. | M | Requisitos.txt RF01 + RF06 |
-| **RF02** | O sistema deve permitir a inserção dos **dados do cliente**: nome (obrigatório), telefone, e-mail e endereço do serviço (opcionais). | M | Requisitos.txt RF02 |
+| **RF01** | O sistema deve permitir o **cadastro do perfil do profissional** (nome, nome da empresa, telefone/WhatsApp, e-mail, CPF/CNPJ opcional), armazenado localmente no aparelho e reutilizado em todos os orçamentos. | M | Levantamento inicial RF01 + RF06 |
+| **RF02** | O sistema deve permitir a inserção dos **dados do cliente**: nome (obrigatório), telefone, e-mail e endereço do serviço (opcionais). | M | Levantamento inicial RF02 |
 | **RF03** | O sistema deve **criar um novo orçamento** atribuindo automaticamente um número sequencial e a data de criação. | M | Novo |
-| **RF04** | O sistema deve permitir **adicionar múltiplos itens de serviço**, cada um com descrição, quantidade, unidade (un, m², m, h, diária, vb) e valor unitário, exibindo o subtotal do item. | M | Requisitos.txt RF03 + slide 7 |
+| **RF04** | O sistema deve permitir **adicionar múltiplos itens de serviço**, cada um com descrição, quantidade, unidade (un, m², m, h, diária, vb) e valor unitário, exibindo o subtotal do item. | M | Levantamento inicial RF03 + slide 7 |
 | **RF05** | O sistema deve permitir **editar e remover** itens de serviço já adicionados. | M | Novo |
-| **RF06** | O sistema deve **calcular e exibir automaticamente o valor total** do orçamento a cada inclusão, alteração ou remoção de item. | M | Requisitos.txt RF04 |
-| **RF07** | O sistema deve permitir informar o **prazo de execução** do serviço (em dias). | M | Requisitos.txt RF05 |
+| **RF06** | O sistema deve **calcular e exibir automaticamente o valor total** do orçamento a cada inclusão, alteração ou remoção de item. | M | Levantamento inicial RF04 |
+| **RF07** | O sistema deve permitir informar o **prazo de execução** do serviço (em dias). | M | Levantamento inicial RF05 |
 | **RF08** | O sistema deve permitir informar **condições de pagamento**, **validade da proposta** e **observações** (ex.: "Materiais por conta do cliente"). | M | Slide 6 e 7 |
 | **RF09** | O sistema deve exibir uma **tela de revisão** com todos os dados do orçamento antes da geração do PDF. | M | Fluxo "03 Revisar" |
-| **RF10** | O sistema deve **gerar um PDF estruturado** contendo: cabeçalho do profissional, dados do cliente, número e data, tabela de itens, total, prazo, condições de pagamento, validade e observações. | M | Requisitos.txt RF07 |
-| **RF11** | O sistema deve permitir **baixar o PDF** no dispositivo e, quando suportado pelo navegador, **compartilhá-lo diretamente** (ex.: WhatsApp) via Web Share API. | M | Requisitos.txt RF08 |
+| **RF10** | O sistema deve **gerar um PDF estruturado** contendo: cabeçalho do profissional, dados do cliente, número e data, tabela de itens, total, prazo, condições de pagamento, validade e observações. | M | Levantamento inicial RF07 |
+| **RF11** | O sistema deve permitir **baixar o PDF** no dispositivo e, quando suportado pelo navegador, **compartilhá-lo diretamente** (ex.: WhatsApp) via Web Share API. | M | Levantamento inicial RF08 |
 | **RF12** | O sistema deve manter um **histórico local de orçamentos**, permitindo listar, buscar por cliente, reabrir, baixar novamente o último PDF e excluir. | S | Novo |
 | **RF13** | O sistema deve **salvar automaticamente o rascunho** do orçamento em andamento e permitir **duplicar** um orçamento existente como base para um novo. | S | Novo |
 
-> **Nota de revisão em relação ao `Requisitos.txt`:** o antigo "RF01 — cadastro de usuário" foi reinterpretado como **perfil local do profissional**, pois o RNF04 original exige que todo o funcionamento ocorra localmente/offline (ver [ADR-001](adr/ADR-001-arquitetura-local-first-pwa.md)). O antigo RF06 (dados do profissional) foi incorporado ao RF01.
+> **Nota de revisão em relação ao [levantamento inicial](material-original/levantamento-inicial-requisitos.txt):** o antigo "RF01 — cadastro de usuário" foi reinterpretado como **perfil local do profissional**, pois o RNF04 original exige que todo o funcionamento ocorra localmente/offline (ver [ADR-001](adr/ADR-001-arquitetura-local-first-pwa.md)). O antigo RF06 (dados do profissional) foi incorporado ao RF01.
 
 ---
 
