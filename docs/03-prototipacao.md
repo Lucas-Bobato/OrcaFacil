@@ -8,6 +8,8 @@ O protótipo das telas do MVP está no **Figma**, que é a **fonte de verdade** 
 
 As telas foram desenhadas para **360 px** de largura (mobile-first, RNF12) e seguem o fluxo de 4 etapas apresentado no pitch: **Preencher → Detalhar → Revisar → Gerar PDF**. Este documento traz o mapa de navegação, uma cópia das telas exportadas do Figma (em [`prototipo/`](prototipo/)) e a ligação de cada tela com os requisitos. Se uma imagem daqui divergir do Figma, vale o Figma; exporte de novo a tela para atualizar.
 
+> **Implementação:** todas as telas abaixo foram implementadas em `apps/web` (rotas no [README](../README.md#12-protótipos)). Com o [ADR-006](adr/ADR-006-api-rest-sqlite-contas.md) entraram as telas **Entrar** e **Criar conta**, e os textos “salvo neste aparelho” passaram a dizer “salvo na sua conta”.
+
 O arquivo tem três páginas:
 
 | Página | Conteúdo |

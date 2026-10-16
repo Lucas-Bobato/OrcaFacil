@@ -4,6 +4,8 @@
 
 Todos os requisitos abaixo são **mensuráveis** e possuem um método de verificação definido.
 
+> **Revisão (ADR-006, 16/10/2026):** com a API e as contas de usuário, os dados passam a ficar no servidor para serem acessados de qualquer aparelho. Isso revisa o **RNF08** (o app abre offline, mas salvar e gerar PDF exigem conexão) e o **RNF18** (dados de profissional, cliente e orçamento trafegam apenas entre o app e a API do OrçaFácil, via HTTPS, e não são compartilhados com terceiros). O **RNF21** passa a apagar a conta e todos os dados no servidor. Ver [ADR-006](adr/ADR-006-api-rest-sqlite-contas.md).
+
 ### Ambiente de referência para medições
 
 | Item | Valor |

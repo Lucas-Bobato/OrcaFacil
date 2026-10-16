@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | ✅ Aprovado |
+| **Status** | ✅ Aprovado — para a interface estática; a API do [ADR-006](ADR-006-api-rest-sqlite-contas.md) precisa de um serviço Node com disco persistente |
 | **Data** | 08/10/2026 |
 | **Requisitos relacionados** | RNF03, RNF09, RNF19, RNF20, RNF27 |
 
