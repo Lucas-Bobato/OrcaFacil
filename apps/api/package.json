@@ -35,8 +35,6 @@
     "@types/pdfmake": "^0.2.11",
     "@types/supertest": "^6.0.3",
     "@types/swagger-ui-express": "^4.1.8",
-    "@vitest/coverage-v8": "~4.1.12",
-    "supertest": "^7.1.4",
-    "vitest": "~4.1.12"
+    "supertest": "^7.1.4"
   }
 }

@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+
+/* Tokens visuais do protótipo (docs/03-prototipacao.md §3.5) */
+@theme {
+  --color-primaria: #25467c;
+  --color-primaria-escura: #1b3560;
+  --color-primaria-clara: #e8ecf4;
+  --color-fundo: #f6f7f3;
+  --color-superficie: #ffffff;
+  --color-neutro: #eef0ea;
+  --color-borda: #c4c8bf;
+  --color-divisor: #dfe1da;
+  --color-texto: #1f1f1f;
+  --color-suave: #5c6158;
+  --color-perigo: #af3226;
+  --color-perigo-fundo: #fbeceb;
+  --color-sucesso: #2c6a43;
+  --color-sucesso-fundo: #e5f0e8;
+  --color-rascunho: #855a00;
+  --color-rascunho-fundo: #f7efdf;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-fundo text-texto font-sans antialiased;
+    font-size: 16px;
+  }
+  :focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-primaria) 45%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@keyframes subir {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animar-subida {
+  animation: subir 0.2s ease-out;
+}
