@@ -1,0 +1,42 @@
+{
+  "name": "@orcafacil/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "start": "tsx --env-file-if-exists=.env src/server.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=.env src/db/seed.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@orcafacil/shared": "*",
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.4.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pdfmake": "~0.2.20",
+    "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.20.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.18.0",
+    "@types/pdfmake": "^0.2.11",
+    "@types/supertest": "^6.0.3",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@vitest/coverage-v8": "~4.1.12",
+    "supertest": "^7.1.4",
+    "vitest": "~4.1.12"
+  }
+}

@@ -1,0 +1,631 @@
+openapi: 3.0.3
+info:
+  title: OrçaFácil API
+  version: 1.0.0
+  description: |
+    API REST do OrçaFácil. Guarda conta, perfil, clientes, orçamentos, itens e PDFs em SQLite,
+    permitindo usar os mesmos dados em qualquer navegador ou aparelho (ADR-006).
+
+    **Autenticação:** `POST /auth/cadastro` ou `POST /auth/login` devolvem um token JWT.
+    Envie-o em `Authorization: Bearer <token>` nas demais rotas.
+
+    **Erros:** sempre no formato `{ "erro": { "codigo", "mensagem", "campos"?, "pendencias"? } }`.
+
+    | Status | Quando |
+    |---|---|
+    | 400 | `VALIDACAO` (campos inválidos, ver `campos`), `JSON_INVALIDO` |
+    | 401 | `NAO_AUTENTICADO`, `SESSAO_INVALIDA`, `CREDENCIAIS_INVALIDAS` |
+    | 404 | recurso inexistente ou de outro usuário (`ORCAMENTO_NAO_ENCONTRADO`, `PERFIL_NAO_CADASTRADO`...) |
+    | 409 | `EMAIL_EM_USO`, `PERFIL_NAO_CADASTRADO` (perfil exigido), `CLIENTE_COM_ORCAMENTOS` |
+    | 422 | regra de negócio: `LIMITE_ITENS` (RN09), `EMISSAO_BLOQUEADA` (RN01), `PDF_MUITO_GRANDE` (RNF06) |
+servers:
+  - url: http://localhost:3333/api
+    description: Desenvolvimento
+tags:
+  - name: Conta
+  - name: Perfil
+  - name: Clientes
+  - name: Orçamentos
+  - name: Itens
+  - name: PDF
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Conta]
+      summary: Verifica se a API está no ar
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  horario: { type: string, format: date-time }
+
+  /auth/cadastro:
+    post:
+      tags: [Conta]
+      summary: Cria uma conta
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credenciais' }
+      responses:
+        '201':
+          description: Conta criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /auth/login:
+    post:
+      tags: [Conta]
+      summary: Entra com e-mail e senha
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credenciais' }
+      responses:
+        '200':
+          description: Sessão iniciada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /auth/me:
+    get:
+      tags: [Conta]
+      summary: Usuário da sessão atual
+      responses:
+        '200':
+          description: Usuário
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /conta:
+    delete:
+      tags: [Conta]
+      summary: Apaga a conta e todos os dados (RNF21)
+      description: Remove em cascata perfil, clientes, orçamentos, itens e PDFs.
+      responses:
+        '204': { description: Conta apagada }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /perfil:
+    get:
+      tags: [Perfil]
+      summary: Perfil do profissional (RF01)
+      responses:
+        '200':
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profissional' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404':
+          description: Perfil ainda não cadastrado (`PERFIL_NAO_CADASTRADO`) — CA01.1
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+    put:
+      tags: [Perfil]
+      summary: Cria ou atualiza o perfil (RF01, RN11)
+      description: 'Exige nome **ou** nome da empresa (CA01.3) e telefone com DDD. CPF/CNPJ validado por dígito verificador.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PerfilEntrada' }
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profissional' }
+        '201':
+          description: Perfil criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profissional' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /clientes:
+    get:
+      tags: [Clientes]
+      summary: Lista clientes
+      parameters:
+        - { name: busca, in: query, schema: { type: string }, description: 'Parte do nome (sem diferenciar acentos/maiúsculas)' }
+      responses:
+        '200':
+          description: Clientes em ordem alfabética
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Cliente' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+    post:
+      tags: [Clientes]
+      summary: Cria cliente (RF02)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClienteEntrada' }
+      responses:
+        '201':
+          description: Cliente criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cliente' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /clientes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Clientes]
+      summary: Detalha cliente
+      responses:
+        '200':
+          description: Cliente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cliente' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Clientes]
+      summary: Atualiza cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClienteEntrada' }
+      responses:
+        '200':
+          description: Cliente atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cliente' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Clientes]
+      summary: Exclui cliente sem orçamentos
+      description: 'Exclusão restrita — cliente com orçamentos devolve 409 `CLIENTE_COM_ORCAMENTOS`.'
+      responses:
+        '204': { description: Excluído }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /orcamentos:
+    get:
+      tags: [Orçamentos]
+      summary: Lista orçamentos (RF12, CA08.1, CA08.2)
+      description: Ordenados do mais recente (atualizado) para o mais antigo.
+      parameters:
+        - { name: busca, in: query, schema: { type: string }, description: Parte do nome do cliente }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/Status' } }
+      responses:
+        '200':
+          description: Orçamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/OrcamentoResumo' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+    post:
+      tags: [Orçamentos]
+      summary: Cria rascunho com número sequencial (RF03, RN07)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clienteId: { type: string, format: uuid, nullable: true, description: Cliente já cadastrado (opcional) }
+      responses:
+        '201':
+          description: Orçamento criado (`ORC-AAAA-NNNN`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /orcamentos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Orçamentos]
+      summary: Detalha orçamento com cliente, itens, pendências e PDF vigente
+      responses:
+        '200':
+          description: Orçamento
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    put:
+      tags: [Orçamentos]
+      summary: Atualiza condições, cliente vinculado e etapa (RF07, RF08, RN05, RN06, RN10)
+      description: |
+        Envie só os campos a alterar. O total **não** é aceito (RN02).
+        Se o orçamento estiver EMITIDO e algum campo (exceto `etapaAtual`) mudar, ele volta para RASCUNHO (RN10).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrcamentoAtualizacao' }
+      responses:
+        '200':
+          description: Orçamento atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Orçamentos]
+      summary: Exclui orçamento, itens e PDFs (CA08.5, RN14)
+      responses:
+        '204': { description: Excluído }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /orcamentos/{id}/cliente:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      tags: [Orçamentos]
+      summary: Define os dados do cliente do orçamento — etapa "01 Preencher" (RF02, US02)
+      description: Cria o cliente se o orçamento ainda não tiver um; caso contrário, atualiza-o.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClienteEntrada' }
+      responses:
+        '200':
+          description: Orçamento atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /orcamentos/{id}/duplicar:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Orçamentos]
+      summary: Duplica como novo rascunho (RF13, CA08.4)
+      description: Novo número, mesmos itens e condições, cliente em branco.
+      responses:
+        '201':
+          description: Novo orçamento
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /orcamentos/{id}/itens:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Itens]
+      summary: Adiciona item (RF04, RN04, RN08, RN09)
+      description: '`ordem` opcional insere numa posição — usado pelo "Desfazer" (CA04.3). Limite de 50 itens.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ItemEntrada'
+                - type: object
+                  properties:
+                    ordem: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        '201':
+          description: Orçamento com o item e o total recalculado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '422': { $ref: '#/components/responses/RegraNegocio' }
+
+  /orcamentos/{id}/itens/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [Itens]
+      summary: Edita item (RF05, CA04.1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ItemEntrada' }
+      responses:
+        '200':
+          description: Orçamento com o total recalculado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+    delete:
+      tags: [Itens]
+      summary: Remove item (RF05, CA04.2)
+      responses:
+        '200':
+          description: Orçamento com o total recalculado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+  /orcamentos/{id}/emitir:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [PDF]
+      summary: Gera o PDF e marca como EMITIDO (RF10, RN01, RN10, RN13)
+      description: Se faltar algo (RN01) responde 422 `EMISSAO_BLOQUEADA` com a lista `pendencias`.
+      responses:
+        '200':
+          description: Orçamento emitido, com `documentoAtual`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Orcamento' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '422': { $ref: '#/components/responses/RegraNegocio' }
+
+  /orcamentos/{id}/pdf:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [PDF]
+      summary: Baixa o PDF vigente (RF11, RN12)
+      description: 'Arquivo `Orcamento_<numero>_<cliente>.pdf` no cabeçalho `Content-Disposition`.'
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Validacao:
+      description: Dados inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example:
+            erro:
+              codigo: VALIDACAO
+              mensagem: Verifique os campos destacados
+              campos: { nome: Informe o nome do cliente, telefone: Telefone inválido }
+    NaoAutenticado:
+      description: Sem token, token inválido/expirado ou credenciais incorretas
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    NaoEncontrado:
+      description: Recurso não encontrado (ou pertence a outro usuário)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    Conflito:
+      description: Conflito com o estado atual
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    RegraNegocio:
+      description: Regra de negócio violada
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example:
+            erro:
+              codigo: EMISSAO_BLOQUEADA
+              mensagem: Complete o orçamento antes de gerar o PDF
+              pendencias: [Informe um prazo entre 1 e 365 dias]
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        erro:
+          type: object
+          required: [codigo, mensagem]
+          properties:
+            codigo: { type: string }
+            mensagem: { type: string }
+            campos:
+              type: object
+              additionalProperties: { type: string }
+            pendencias:
+              type: array
+              items: { type: string }
+
+    Credenciais:
+      type: object
+      required: [email, senha]
+      properties:
+        email: { type: string, format: email, example: joao@joaopinturas.com.br }
+        senha: { type: string, minLength: 8, example: senha1234 }
+
+    Usuario:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        criadoEm: { type: string, format: date-time }
+
+    Sessao:
+      type: object
+      properties:
+        token: { type: string }
+        usuario: { $ref: '#/components/schemas/Usuario' }
+
+    PerfilEntrada:
+      type: object
+      required: [telefone]
+      properties:
+        nome: { type: string, maxLength: 80, nullable: true, example: João da Silva }
+        nomeEmpresa: { type: string, maxLength: 80, nullable: true, example: João Pinturas }
+        telefone: { type: string, description: '10–11 dígitos (máscara aceita)', example: '(11) 98765-4321' }
+        email: { type: string, format: email, nullable: true }
+        documento: { type: string, nullable: true, description: CPF ou CNPJ válido, example: 11.222.333/0001-81 }
+
+    Profissional:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, nullable: true }
+        nomeEmpresa: { type: string, nullable: true }
+        documento: { type: string, nullable: true, description: Somente dígitos }
+        telefone: { type: string, description: Somente dígitos }
+        email: { type: string, nullable: true }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+
+    ClienteEntrada:
+      type: object
+      required: [nome]
+      properties:
+        nome: { type: string, minLength: 2, maxLength: 80, example: Maria Silva }
+        telefone: { type: string, nullable: true, example: '(11) 91234-5678' }
+        email: { type: string, format: email, nullable: true }
+        endereco: { type: string, maxLength: 200, nullable: true, example: Rua das Flores, 100 - Apto 12 }
+
+    Cliente:
+      allOf:
+        - $ref: '#/components/schemas/ClienteEntrada'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            criadoEm: { type: string, format: date-time }
+            atualizadoEm: { type: string, format: date-time }
+
+    Unidade:
+      type: string
+      enum: [UN, M2, M, H, DIARIA, VB]
+
+    Status:
+      type: string
+      enum: [RASCUNHO, EMITIDO]
+
+    ItemEntrada:
+      type: object
+      required: [descricao, quantidade, unidade, valorUnitarioCentavos]
+      properties:
+        descricao: { type: string, minLength: 3, maxLength: 120, example: Pintura de parede }
+        quantidade: { type: number, exclusiveMinimum: true, minimum: 0, maximum: 99999.99, example: 20 }
+        unidade: { $ref: '#/components/schemas/Unidade' }
+        valorUnitarioCentavos: { type: integer, minimum: 1, maximum: 999999999, example: 2500 }
+
+    Item:
+      allOf:
+        - $ref: '#/components/schemas/ItemEntrada'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            orcamentoId: { type: string, format: uuid }
+            ordem: { type: integer }
+            subtotalCentavos: { type: integer, description: 'quantidade × valor unitário, arredondado (RN08)' }
+
+    OrcamentoAtualizacao:
+      type: object
+      additionalProperties: false
+      properties:
+        clienteId: { type: string, format: uuid, nullable: true }
+        prazoExecucaoDias: { type: integer, minimum: 1, maximum: 365, nullable: true }
+        validadeDias: { type: integer, minimum: 1, maximum: 90 }
+        condicoesPagamento: { type: string, maxLength: 500, nullable: true }
+        observacoes: { type: string, maxLength: 1000, nullable: true }
+        etapaAtual: { type: string, enum: [PREENCHER, DETALHAR, REVISAR] }
+
+    OrcamentoResumo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        numero: { type: string, example: ORC-2026-0001 }
+        status: { $ref: '#/components/schemas/Status' }
+        clienteId: { type: string, format: uuid, nullable: true }
+        clienteNome: { type: string, nullable: true }
+        totalCentavos: { type: integer }
+        etapaAtual: { type: string, enum: [PREENCHER, DETALHAR, REVISAR] }
+        dataEmissao: { type: string, format: date, nullable: true }
+        possuiPdf: { type: boolean }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+
+    Orcamento:
+      allOf:
+        - $ref: '#/components/schemas/OrcamentoResumo'
+        - type: object
+          properties:
+            prazoExecucaoDias: { type: integer, nullable: true }
+            validadeDias: { type: integer, example: 15 }
+            condicoesPagamento: { type: string, nullable: true }
+            observacoes: { type: string, nullable: true }
+            cliente:
+              allOf: [{ $ref: '#/components/schemas/Cliente' }]
+              nullable: true
+            itens:
+              type: array
+              items: { $ref: '#/components/schemas/Item' }
+            pendencias:
+              type: array
+              description: O que falta para gerar o PDF (RN01). Vazio = pode emitir.
+              items: { type: string }
+            documentoAtual:
+              type: object
+              nullable: true
+              properties:
+                id: { type: string, format: uuid }
+                nomeArquivo: { type: string, example: Orcamento_ORC-2026-0001_Maria-Silva.pdf }
+                tamanhoBytes: { type: integer }
+                hashSha256: { type: string }
+                geradoEm: { type: string, format: date-time }

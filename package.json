@@ -1,0 +1,30 @@
+{
+  "name": "orcafacil",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OrçaFácil — orçamentos profissionais em PDF para prestadores de serviço",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @orcafacil/api\" \"npm run dev -w @orcafacil/web\"",
+    "build": "npm run build -w @orcafacil/web",
+    "start": "npm run start -w @orcafacil/api",
+    "db:migrate": "npm run db:migrate -w @orcafacil/api",
+    "db:seed": "npm run db:seed -w @orcafacil/api",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces",
+    "test:coverage": "npm run test:coverage --workspaces",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "concurrently": "^9.2.0",
+    "typescript": "~5.9.3"
+  }
+}
