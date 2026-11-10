@@ -1,14 +1,14 @@
 import request from 'supertest';
-import { criarApp } from '../src/app';
+import { criarApp, type OpcoesApp } from '../src/app';
 import { abrirBanco, migrar, type Db } from '../src/db/connection';
 
 export const SEGREDO_TESTE = 'segredo-de-teste';
 
 /** App com banco SQLite em memória, isolado por teste. */
-export function criarContexto() {
+export function criarContexto(opcoes: Partial<OpcoesApp> = {}) {
   const db: Db = abrirBanco(':memory:');
   migrar(db);
-  const app = criarApp({ db, jwtSecret: SEGREDO_TESTE });
+  const app = criarApp({ db, jwtSecret: SEGREDO_TESTE, ...opcoes });
   return { db, app, http: request(app) };
 }
 

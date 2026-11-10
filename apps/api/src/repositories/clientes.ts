@@ -55,6 +55,10 @@ export const clientesRepo = {
     ).run(dados.nome, dados.telefone, dados.email, dados.endereco, agora, id);
   },
 
+  contarDaConta(db: Db, profissionalId: string): number {
+    return (db.prepare('SELECT COUNT(*) AS n FROM cliente WHERE profissional_id = ?').get(profissionalId) as { n: number }).n;
+  },
+
   contarOrcamentos(db: Db, id: string): number {
     return (db.prepare('SELECT COUNT(*) AS n FROM orcamento WHERE cliente_id = ?').get(id) as { n: number }).n;
   },

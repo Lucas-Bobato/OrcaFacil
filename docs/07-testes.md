@@ -16,8 +16,8 @@ npm run test:e2e         # E2E: sobe API (banco descartável) + interface e roda
 | Suíte | Arquivos | Testes | O que cobre |
 |---|---|---|---|
 | Domínio | `packages/shared/tests/*.test.ts` | 69 | Money/BRL, máscara em centavos, arredondamento, total, pendências RN01, validade RN06, numeração RN07, nome do arquivo RN12, CPF/CNPJ, telefone, schemas com as mensagens dos CAs |
-| API + banco | `apps/api/tests/*.test.ts` | 54 | Todos os endpoints com SQLite em memória: autenticação, perfil, CRUD de clientes, orçamentos, itens, emissão e download do PDF, RN10, isolamento entre usuários, formato de erros, restrições do banco (CHECK, FK, UNIQUE, trigger, índices) |
-| Interface | `apps/web/tests/telas.test.tsx` | 22 | Telas com API simulada: validações, máscara, habilitação do "Gerar PDF", Desfazer, estados de carregamento/erro/vazio, Compartilhar condicional |
+| API + banco | `apps/api/tests/*.test.ts` | 86 | Todos os endpoints com SQLite em memória: autenticação, perfil, CRUD de clientes, orçamentos, itens, emissão e download do PDF, RN10, isolamento entre usuários, formato de erros, restrições do banco (CHECK, FK, UNIQUE, trigger, índices), regressão de segurança ([docs/08](08-seguranca.md)) |
+| Interface | `apps/web/tests/*.test.tsx` | 33 | Telas com API simulada: validações, máscara, habilitação do "Gerar PDF", Desfazer, estados de carregamento/erro/vazio, Compartilhar condicional, sessão entre abas, logout, troca de senha, exclusão com senha |
 | E2E | `e2e/fluxo-completo.spec.ts` | 5 | Integração real interface → API → SQLite no Chromium (viewport de celular) |
 
 ## 7.3 Rastreabilidade (critérios de aceite → testes)
@@ -65,6 +65,6 @@ npm run test:e2e         # E2E: sobe API (banco descartável) + interface e roda
 
 | Suíte | Resultado |
 |---|---|
-| `npm test` | 145 testes aprovados (69 domínio + 54 API + 22 interface) |
-| `npm run test:e2e` | 5 testes aprovados |
-| `npm audit` | 0 vulnerabilidades |
+| `npm test` | 188 testes aprovados (69 domínio + 86 API + 33 interface) |
+| `npm run test:e2e` | 7 testes aprovados |
+| `npm audit --omit=dev` | 1 alta (`zod`, não alcançável neste projeto; ver [docs/08](08-seguranca.md)). **RNF22 não atendido** |

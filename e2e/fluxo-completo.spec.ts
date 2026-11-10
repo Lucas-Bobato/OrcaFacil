@@ -159,11 +159,38 @@ test('RNF12: layout em 360 px sem rolagem horizontal', async ({ page }) => {
   }
 });
 
+test('Segurança: dentro de um iframe a aplicação não abre', async ({ page, baseURL }) => {
+  await page.setContent(`<iframe src="${baseURL}/privacidade" width="400" height="400"></iframe>`);
+  await expect(page.frameLocator('iframe').getByText('não pode ser aberto dentro de outra página')).toBeVisible();
+  await expect(page.frameLocator('iframe').getByRole('button', { name: 'Apagar todos os meus dados' })).toHaveCount(0);
+});
+
+test('Segurança: sair em uma aba encerra a outra e revoga o token no servidor', async ({ page, context, request, baseURL }) => {
+  await entrar(page);
+  await expect(page.getByRole('heading', { name: 'Meus orçamentos' })).toBeVisible();
+  const token = await page.evaluate(() => localStorage.getItem('orcafacil.token'));
+
+  const outraAba = await context.newPage();
+  await outraAba.goto('/');
+  await expect(outraAba.getByRole('heading', { name: 'Meus orçamentos' })).toBeVisible();
+
+  await page.goto('/perfil');
+  await page.getByRole('button', { name: 'Sair da conta' }).click();
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible();
+  await expect(outraAba.getByRole('heading', { name: 'Entrar' })).toBeVisible();
+  await outraAba.close();
+
+  await expect
+    .poll(async () => (await request.get(`${baseURL}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })).status())
+    .toBe(401);
+});
+
 test('RNF21: apagar todos os dados encerra a conta', async ({ page }) => {
   await entrar(page);
   await expect(page.getByRole('heading', { name: 'Meus orçamentos' })).toBeVisible();
   await page.goto('/privacidade');
   await page.getByRole('button', { name: 'Apagar todos os meus dados' }).click();
+  await page.getByRole('dialog').getByLabel('Sua senha, para confirmar').fill(conta.senha);
   await page.getByRole('dialog').getByRole('button', { name: 'Apagar tudo' }).click();
   await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible();
   await entrar(page);

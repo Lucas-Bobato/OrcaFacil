@@ -110,7 +110,7 @@ describe('Banco de dados — restrições de integridade (DER)', () => {
 
   it('PROFISSIONAL exige nome ou nome da empresa (CHECK)', () => {
     const usuario = randomUUID();
-    ctx.db.prepare('INSERT INTO usuario VALUES (?, ?, ?, ?)').run(usuario, 'x@y.com', 'h', agora);
+    ctx.db.prepare('INSERT INTO usuario (id, email, senha_hash, criado_em) VALUES (?, ?, ?, ?)').run(usuario, 'x@y.com', 'h', agora);
     expect(() =>
       ctx.db
         .prepare('INSERT INTO profissional (id, usuario_id, telefone, criado_em, atualizado_em) VALUES (?, ?, ?, ?, ?)')

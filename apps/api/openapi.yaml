@@ -66,6 +66,7 @@ paths:
               schema: { $ref: '#/components/schemas/Sessao' }
         '400': { $ref: '#/components/responses/Validacao' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/MuitasTentativas' }
 
   /auth/login:
     post:
@@ -85,6 +86,7 @@ paths:
               schema: { $ref: '#/components/schemas/Sessao' }
         '400': { $ref: '#/components/responses/Validacao' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '429': { $ref: '#/components/responses/MuitasTentativas' }
 
   /auth/me:
     get:
@@ -98,14 +100,61 @@ paths:
               schema: { $ref: '#/components/schemas/Usuario' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
 
+  /auth/logout:
+    post:
+      tags: [Conta]
+      summary: Encerra a sessão no servidor
+      description: Invalida todos os tokens da conta, em todos os aparelhos.
+      responses:
+        '204': { description: Sessões encerradas }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+
+  /auth/senha:
+    post:
+      tags: [Conta]
+      summary: Troca a senha
+      description: Exige a senha atual, invalida os tokens anteriores e devolve uma nova sessão.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senhaAtual, novaSenha]
+              properties:
+                senhaAtual: { type: string, maxLength: 72 }
+                novaSenha: { type: string, minLength: 8, maxLength: 72, description: No máximo 72 bytes em UTF-8 }
+      responses:
+        '200':
+          description: Senha alterada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sessao' }
+        '400': { $ref: '#/components/responses/Validacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/SenhaIncorreta' }
+        '429': { $ref: '#/components/responses/MuitasTentativas' }
+
   /conta:
     delete:
       tags: [Conta]
       summary: Apaga a conta e todos os dados (RNF21)
-      description: Remove em cascata perfil, clientes, orçamentos, itens e PDFs.
+      description: Exige a senha atual. Remove em cascata perfil, clientes, orçamentos, itens e PDFs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senha]
+              properties:
+                senha: { type: string, maxLength: 72 }
       responses:
         '204': { description: Conta apagada }
+        '400': { $ref: '#/components/responses/Validacao' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/SenhaIncorreta' }
+        '429': { $ref: '#/components/responses/MuitasTentativas' }
 
   /perfil:
     get:
@@ -447,6 +496,20 @@ components:
               campos: { nome: Informe o nome do cliente, telefone: Telefone inválido }
     NaoAutenticado:
       description: Sem token, token inválido/expirado ou credenciais incorretas
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    SenhaIncorreta:
+      description: A senha informada para confirmar a operação está incorreta (SENHA_INCORRETA)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    MuitasTentativas:
+      description: Limite de tentativas atingido (MUITAS_TENTATIVAS); veja o cabeçalho Retry-After
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Segundos até poder tentar de novo
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erro' }

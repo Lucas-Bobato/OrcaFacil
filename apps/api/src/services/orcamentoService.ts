@@ -21,8 +21,10 @@ import {
 } from '@orcafacil/shared';
 import type { Db } from '../db/connection';
 import { AppError, naoEncontrado } from '../errors';
+import { LIMITES_PADRAO, type Limites } from '../middleware/limites';
 import { gerarPdf } from '../pdf/gerarPdf';
 import { clientesRepo } from '../repositories/clientes';
+import { clienteService } from './clienteService';
 import {
   documentosRepo,
   itensRepo,
@@ -50,9 +52,16 @@ function proximoNumero(db: Db, profissionalId: string): string {
   return formatarNumero(ano, sequenciasRepo.proximo(db, profissionalId, ano));
 }
 
+/** Lança 422 se a conta já está na cota de orçamentos. */
+function exigirCotaOrcamentos(db: Db, profissionalId: string, limites: Limites): void {
+  if (orcamentosRepo.contarDaConta(db, profissionalId) >= limites.orcamentosPorConta) {
+    throw new AppError(422, 'LIMITE_CONTA', `Sua conta atingiu o limite de ${limites.orcamentosPorConta} orçamentos`);
+  }
+}
+
 /**
  * Recalcula o total a partir dos itens (RN02) e aplica RN10: um orçamento
- * emitido que é editado volta para RASCUNHO (o PDF anterior continua no histórico).
+ * emitido que é editado volta para RASCUNHO (o PDF anterior continua disponível até gerar outro).
  */
 function registrarEdicao(db: Db, orcamento: OrcamentoRegistro, campos: Partial<Record<CampoOrcamento, unknown>> = {}) {
   const total = calcularTotal(itensRepo.listar(db, orcamento.id));
@@ -93,9 +102,10 @@ export const orcamentoService = {
   },
 
   /** RF03 — cria um rascunho com número sequencial e data de criação (RN07). */
-  criar(db: Db, profissional: Profissional, entrada: unknown): Orcamento {
+  criar(db: Db, profissional: Profissional, entrada: unknown, limites: Limites = LIMITES_PADRAO): Orcamento {
     const { clienteId } = criarOrcamentoSchema.parse(entrada ?? {});
     if (clienteId && !clientesRepo.porId(db, profissional.id, clienteId)) throw naoEncontrado('Cliente');
+    exigirCotaOrcamentos(db, profissional.id, limites);
     const id = randomUUID();
     db.transaction(() => {
       orcamentosRepo.inserir(db, {
@@ -132,7 +142,7 @@ export const orcamentoService = {
   },
 
   /** Etapa "01 Preencher" (RF02): cria ou atualiza o cliente do orçamento. */
-  definirCliente(db: Db, profissional: Profissional, id: string, entrada: unknown): Orcamento {
+  definirCliente(db: Db, profissional: Profissional, id: string, entrada: unknown, limites: Limites = LIMITES_PADRAO): Orcamento {
     const o = carregar(db, profissional.id, id);
     const dados = clienteSchema.parse(entrada);
     db.transaction(() => {
@@ -144,6 +154,7 @@ export const orcamentoService = {
           registrarEdicao(db, o);
         }
       } else {
+        clienteService.exigirCota(db, profissional.id, limites);
         const clienteId = randomUUID();
         clientesRepo.inserir(db, clienteId, profissional.id, dados, agoraIso());
         registrarEdicao(db, o, { clienteId });
@@ -159,8 +170,9 @@ export const orcamentoService = {
   },
 
   /** CA08.4 — novo rascunho com novo número, mesmos itens e condições, cliente em branco. */
-  duplicar(db: Db, profissional: Profissional, id: string): Orcamento {
+  duplicar(db: Db, profissional: Profissional, id: string, limites: Limites = LIMITES_PADRAO): Orcamento {
     const origem = carregar(db, profissional.id, id);
+    exigirCotaOrcamentos(db, profissional.id, limites);
     const novoId = randomUUID();
     db.transaction(() => {
       const itens = itensRepo.listar(db, origem.id);
@@ -241,10 +253,10 @@ export const orcamentoService = {
   // ---------------------------------------------------------------- Emissão (RF10)
 
   /**
-   * Valida RN01, gera o PDF, guarda o snapshot e marca como EMITIDO com a
-   * data de emissão automática (RN10, RN13).
+   * Valida RN01, gera o PDF, guarda o snapshot no lugar do anterior e marca como
+   * EMITIDO com a data de emissão automática (RN10, RN13).
    */
-  async emitir(db: Db, profissional: Profissional, id: string): Promise<Orcamento> {
+  async emitir(db: Db, profissional: Profissional, id: string, limites: Limites = LIMITES_PADRAO): Promise<Orcamento> {
     const o = this.detalhar(db, profissional, id);
     if (o.pendencias.length > 0 || !o.cliente || o.prazoExecucaoDias === null) {
       throw new AppError(422, 'EMISSAO_BLOQUEADA', 'Complete o orçamento antes de gerar o PDF', {
@@ -268,8 +280,12 @@ export const orcamentoService = {
     if (pdf.length > TAMANHO_MAXIMO_PDF) {
       throw new AppError(422, 'PDF_MUITO_GRANDE', 'O PDF gerado ultrapassa o limite de 3 MB');
     }
+    if (documentosRepo.bytesDaConta(db, profissional.id, o.id) + pdf.length > limites.bytesPdfPorConta) {
+      throw new AppError(422, 'LIMITE_CONTA', 'Sua conta atingiu o limite de armazenamento de PDFs');
+    }
     const agora = agoraIso();
     db.transaction(() => {
+      documentosRepo.excluirDoOrcamento(db, o.id);
       documentosRepo.inserir(db, {
         id: randomUUID(),
         orcamentoId: o.id,

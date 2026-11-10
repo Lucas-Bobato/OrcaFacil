@@ -18,16 +18,24 @@ const queryClient = new QueryClient({
   },
 });
 
+// Defesa contra clickjacking em hospedagens sem os cabeçalhos de apps/web/vercel.json:
+// dentro de um iframe a aplicação não abre, nem toca na sessão.
+const emQuadro = window.top !== window.self;
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
-  </StrictMode>,
+  emQuadro ? (
+    <p className="p-6">O OrçaFácil não pode ser aberto dentro de outra página.</p>
+  ) : (
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </StrictMode>
+  ),
 );

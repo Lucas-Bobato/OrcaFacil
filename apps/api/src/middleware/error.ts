@@ -16,6 +16,7 @@ export const rotaNaoEncontrada: RequestHandler = (req, res) => {
  * - ZodError → 400 VALIDACAO com mensagens por campo
  * - AppError → status/código definidos pela regra de negócio
  * - JSON malformado → 400 JSON_INVALIDO
+ * - outros erros 4xx do Express → REQUISICAO_INVALIDA
  * - demais → 500 ERRO_INTERNO (detalhes só no log)
  */
 export const tratarErros: ErrorRequestHandler = (err, _req, res, _next) => {
@@ -36,6 +37,10 @@ export const tratarErros: ErrorRequestHandler = (err, _req, res, _next) => {
   } else if (err?.type === 'entity.too.large') {
     status = 413;
     corpo = { erro: { codigo: 'CORPO_MUITO_GRANDE', mensagem: 'A requisição é muito grande' } };
+  } else if (err?.status >= 400 && err?.status < 500) {
+    // Erros do cliente vindos do Express: corpo comprimido, URL malformada etc.
+    status = err.status;
+    corpo = { erro: { codigo: 'REQUISICAO_INVALIDA', mensagem: 'A requisição não pôde ser processada' } };
   } else {
     console.error(err);
   }

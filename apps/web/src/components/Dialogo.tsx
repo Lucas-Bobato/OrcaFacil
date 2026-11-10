@@ -9,7 +9,9 @@ function Sobreposicao({ aoFechar, folha, titulo, children }: { aoFechar(): void;
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
     document.addEventListener('keydown', tecla);
-    painel.current?.querySelector<HTMLElement>('button')?.focus();
+    // Foco inicial nunca na ação destrutiva: um Enter acidental não pode confirmar.
+    const alvo = ['input', '[data-foco-inicial]', 'button'].map((s) => painel.current?.querySelector<HTMLElement>(s)).find(Boolean);
+    alvo?.focus();
     return () => document.removeEventListener('keydown', tecla);
   }, [aoFechar]);
 
@@ -44,6 +46,7 @@ export function Confirmacao({
   aoConfirmar,
   aoCancelar,
   carregando,
+  desabilitarConfirmar,
 }: {
   titulo: string;
   mensagem: ReactNode;
@@ -51,15 +54,16 @@ export function Confirmacao({
   aoConfirmar(): void;
   aoCancelar(): void;
   carregando?: boolean;
+  desabilitarConfirmar?: boolean;
 }) {
   return (
     <Sobreposicao titulo={titulo} aoFechar={aoCancelar}>
       <div className="mb-6 text-suave">{mensagem}</div>
       <div className="flex flex-col gap-2">
-        <Botao variante="perigo" onClick={aoConfirmar} carregando={carregando} bloco>
+        <Botao variante="perigo" onClick={aoConfirmar} carregando={carregando} disabled={desabilitarConfirmar} bloco>
           {rotuloConfirmar}
         </Botao>
-        <Botao variante="texto" onClick={aoCancelar} bloco>
+        <Botao variante="texto" onClick={aoCancelar} data-foco-inicial bloco>
           Cancelar
         </Botao>
       </div>

@@ -55,7 +55,7 @@ describe('Conta (cadastro e login)', () => {
     const o = await criarOrcamentoCompleto(ctx, auth);
     await ctx.http.post(`/api/orcamentos/${o.id}/emitir`).set(auth).expect(200);
 
-    await ctx.http.delete('/api/conta').set(auth).expect(204);
+    await ctx.http.delete('/api/conta').set(auth).send({ senha: 'senha1234' }).expect(204);
 
     for (const tabela of ['usuario', 'profissional', 'cliente', 'orcamento', 'item_servico', 'documento_pdf', 'sequencia_numeracao']) {
       const { n } = ctx.db.prepare(`SELECT COUNT(*) AS n FROM ${tabela}`).get() as { n: number };

@@ -55,7 +55,8 @@ export function useOrcamentos(busca: string) {
 }
 
 export function useOrcamento(id: string) {
-  return useQuery({ queryKey: chaves.orcamento(id), queryFn: () => api.get<Orcamento>(`/orcamentos/${id}`) });
+  // `id` vem da URL: sem codificar, "..%2Fperfil" mudaria o caminho chamado na API.
+  return useQuery({ queryKey: chaves.orcamento(id), queryFn: () => api.get<Orcamento>(`/orcamentos/${encodeURIComponent(id)}`) });
 }
 
 /** Mutação que devolve o orçamento atualizado e o grava no cache. */

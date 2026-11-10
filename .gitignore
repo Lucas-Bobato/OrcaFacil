@@ -11,6 +11,11 @@ apps/api/data/
 *.db-shm
 *.db-wal
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
 coverage/
 playwright-report/
 test-results/

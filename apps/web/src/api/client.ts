@@ -1,7 +1,10 @@
 import type { ErroResposta } from '@orcafacil/shared';
 
 const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '/api';
-const CHAVE_TOKEN = 'orcafacil.token';
+export const CHAVE_TOKEN = 'orcafacil.token';
+
+/** Códigos em que a API não reconhece mais a sessão (401 de senha errada usa outro código). */
+const SESSAO_PERDIDA = ['SESSAO_INVALIDA', 'NAO_AUTENTICADO'];
 
 /** Erro devolvido pela API, já no formato padrão `{ erro: {...} }`. */
 export class ApiError extends Error {
@@ -70,7 +73,7 @@ async function requisitar(metodo: string, caminho: string, corpo?: unknown): Pro
     } catch {
       /* resposta sem JSON */
     }
-    if (res.status === 401 && token && erro.codigo === 'SESSAO_INVALIDA') aoExpirarSessao();
+    if (res.status === 401 && SESSAO_PERDIDA.includes(erro.codigo)) aoExpirarSessao();
     throw new ApiError(res.status, erro.codigo, erro.mensagem, erro.campos, erro.pendencias);
   }
   return res;
@@ -85,7 +88,7 @@ export const api = {
   get: <T>(caminho: string) => json<T>('GET', caminho),
   post: <T>(caminho: string, corpo: unknown = {}) => json<T>('POST', caminho, corpo),
   put: <T>(caminho: string, corpo: unknown) => json<T>('PUT', caminho, corpo),
-  delete: <T = void>(caminho: string) => json<T>('DELETE', caminho),
+  delete: <T = void>(caminho: string, corpo?: unknown) => json<T>('DELETE', caminho, corpo),
   /** Baixa um arquivo binário (PDF), devolvendo o Blob e o nome do arquivo. */
   async arquivo(caminho: string): Promise<{ blob: Blob; nomeArquivo: string }> {
     const res = await requisitar('GET', caminho);

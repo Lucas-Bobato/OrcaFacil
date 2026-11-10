@@ -17,6 +17,7 @@ export function abrirBanco(caminho: string): Db {
   const db = new Database(caminho);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  db.pragma('secure_delete = ON'); // zera as páginas de dados apagados (RNF21)
   // Busca sem acento e sem diferenciar maiúsculas (CA08.2): "maria" encontra "María".
   db.function('normalizar', { deterministic: true }, (texto: unknown) =>
     typeof texto === 'string' ? removerAcentos(texto).toLowerCase() : null,

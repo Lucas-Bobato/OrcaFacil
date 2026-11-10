@@ -136,6 +136,10 @@ export const orcamentosRepo = {
   excluir(db: Db, id: string): void {
     db.prepare('DELETE FROM orcamento WHERE id = ?').run(id);
   },
+
+  contarDaConta(db: Db, profissionalId: string): number {
+    return (db.prepare('SELECT COUNT(*) AS n FROM orcamento WHERE profissional_id = ?').get(profissionalId) as { n: number }).n;
+  },
 };
 
 // ------------------------------------------------------------------ Numeração (RN07)
@@ -249,6 +253,24 @@ export const documentosRepo = {
       )
       .get(orcamentoId) as DocumentoRow | undefined;
     return r && { nomeArquivo: r.nome_arquivo, conteudo: r.conteudo! };
+  },
+
+  /** Remove os PDFs do orçamento; usado ao gerar um novo, que passa a ser o vigente (RN10). */
+  excluirDoOrcamento(db: Db, orcamentoId: string): void {
+    db.prepare('DELETE FROM documento_pdf WHERE orcamento_id = ?').run(orcamentoId);
+  },
+
+  /** Bytes de PDF guardados pela conta, sem contar os de um orçamento. */
+  bytesDaConta(db: Db, profissionalId: string, excetoOrcamentoId: string): number {
+    return (
+      db
+        .prepare(
+          `SELECT COALESCE(SUM(d.tamanho_bytes), 0) AS n FROM documento_pdf d
+           JOIN orcamento o ON o.id = d.orcamento_id
+           WHERE o.profissional_id = ? AND o.id <> ?`,
+        )
+        .get(profissionalId, excetoOrcamentoId) as { n: number }
+    ).n;
   },
 
   inserir(

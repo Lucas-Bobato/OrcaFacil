@@ -16,7 +16,9 @@
 | POST | `/auth/cadastro` | Cria conta (`email`, `senha` ≥ 8) | 201 | ADR-006 |
 | POST | `/auth/login` | Inicia sessão | 200 | ADR-006 |
 | GET | `/auth/me` | Usuário da sessão | 200 | — |
-| DELETE | `/conta` | Apaga conta e **todos** os dados (cascata) | 204 | RNF21 |
+| POST | `/auth/logout` | Encerra a sessão: invalida todos os tokens da conta | 204 | [Segurança](08-seguranca.md) |
+| POST | `/auth/senha` | Troca a senha (`senhaAtual`, `novaSenha`), revoga tokens antigos e devolve nova sessão | 200 | [Segurança](08-seguranca.md) |
+| DELETE | `/conta` | Apaga conta e **todos** os dados (cascata). Exige `{ "senha" }` no corpo | 204 | RNF21 |
 | GET | `/perfil` | Perfil do profissional (404 se ainda não existe) | 200 | RF01, CA01.1 |
 | PUT | `/perfil` | Cria (201) ou atualiza (200) o perfil | 200/201 | RF01, CA01.2, CA01.3, RN11 |
 | GET | `/clientes?busca=` | Lista clientes (busca sem acentos) | 200 | RF02 |
@@ -34,7 +36,7 @@
 | POST | `/orcamentos/:id/itens` | Adiciona item (opcional `ordem` para "Desfazer") | 201 | RF04, RN04, RN08, RN09, CA04.3 |
 | PUT | `/orcamentos/:id/itens/:itemId` | Edita item | 200 | RF05, CA04.1 |
 | DELETE | `/orcamentos/:id/itens/:itemId` | Remove item | 200 | RF05, CA04.2 |
-| POST | `/orcamentos/:id/emitir` | Gera o PDF e marca como EMITIDO | 200 | RF10, RN01, RN10, RN13 |
+| POST | `/orcamentos/:id/emitir` | Gera o PDF, substitui o anterior e marca como EMITIDO | 200 | RF10, RN01, RN10, RN13 |
 | GET | `/orcamentos/:id/pdf` | Baixa o PDF vigente | 200 | RF11, RN12 |
 
 As rotas que alteram um orçamento devolvem o **orçamento completo atualizado** (com `totalCentavos` recalculado — RN02), o que permite à interface atualizar a tela com uma única requisição.
@@ -69,13 +71,17 @@ Todas as falhas usam o mesmo formato:
 
 | Status | Códigos |
 |---|---|
-| 400 | `VALIDACAO` (com `campos`), `JSON_INVALIDO` |
+| 400 | `VALIDACAO` (com `campos`), `JSON_INVALIDO`, `REQUISICAO_INVALIDA` |
 | 401 | `NAO_AUTENTICADO`, `SESSAO_INVALIDA`, `CREDENCIAIS_INVALIDAS` |
+| 403 | `SENHA_INCORRETA` (troca de senha e exclusão de conta) |
 | 404 | `PERFIL_NAO_CADASTRADO` (GET /perfil), `ORCAMENTO_NAO_ENCONTRADO`, `CLIENTE_NAO_ENCONTRADO`, `ITEM_NAO_ENCONTRADO`, `PDF_NAO_ENCONTRADO`, `ROTA_NAO_ENCONTRADA` |
 | 409 | `EMAIL_EM_USO`, `PERFIL_NAO_CADASTRADO` (perfil exigido), `CLIENTE_COM_ORCAMENTOS` |
 | 413 | `CORPO_MUITO_GRANDE` |
-| 422 | `LIMITE_ITENS`, `EMISSAO_BLOQUEADA` (com `pendencias`), `PDF_MUITO_GRANDE` |
+| 415 | `REQUISICAO_INVALIDA` (corpo comprimido não é aceito) |
+| 422 | `LIMITE_ITENS`, `LIMITE_CONTA`, `EMISSAO_BLOQUEADA` (com `pendencias`), `PDF_MUITO_GRANDE` |
+| 429 | `MUITAS_TENTATIVAS` (com cabeçalho `Retry-After`) |
 | 500 | `ERRO_INTERNO` (detalhes apenas no log do servidor) |
+| 503 | `SERVIDOR_OCUPADO` (com cabeçalho `Retry-After`) |
 
 ## 6.4 Exemplo de uso (curl)
 

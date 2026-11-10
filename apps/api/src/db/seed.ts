@@ -76,6 +76,7 @@ export async function semear(db: Db): Promise<void> {
 
 // Execução via `npm run db:seed`
 if (process.argv[1]?.replace(/\\/g, '/').endsWith('db/seed.ts')) {
+  if (config.producao) throw new Error('O seed cria uma conta com senha pública e não pode rodar em produção.');
   const db = abrirBanco(config.caminhoBanco);
   migrar(db);
   await semear(db);

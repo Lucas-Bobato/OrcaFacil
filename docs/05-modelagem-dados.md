@@ -104,7 +104,7 @@ erDiagram
 | PROFISSIONAL → ORCAMENTO | 1 : 0..N | Um profissional emite vários orçamentos. | Idem. |
 | CLIENTE → ORCAMENTO | 1 : 0..N | Um cliente pode receber vários orçamentos; cada orçamento emitido pertence a exatamente 1 cliente. | **Restrita** (`NO ACTION`): cliente com orçamentos não pode ser excluído (API responde 409). |
 | ORCAMENTO → ITEM_SERVICO | 1 : 1..50 | Composição: itens não existem fora do orçamento (RN09). Um rascunho pode ter 0 itens temporariamente; para emitir, ≥ 1. | **Cascata**. |
-| ORCAMENTO → DOCUMENTO_PDF | 1 : 0..N | Cada emissão gera um PDF; o mais recente é o vigente (RN10). | **Cascata**. |
+| ORCAMENTO → DOCUMENTO_PDF | 1 : 0..1 | Cada emissão gera um PDF, que substitui o anterior (RN10). A tabela não impõe a unicidade; o serviço de emissão apaga o anterior na mesma transação. | **Cascata**. |
 
 > Todas as consultas da API filtram pelo `profissional_id` da sessão: um usuário nunca enxerga dados de outro (a API responde 404).
 
@@ -117,6 +117,7 @@ erDiagram
 | id | UUID v4 | Não | PK |
 | email | texto (120) | Não | **Único** (`COLLATE NOCASE`); normalizado para minúsculas |
 | senha_hash | texto | Não | Hash bcrypt (custo 10); a senha nunca é armazenada nem devolvida |
+| token_versao | inteiro | Não | Versão dos tokens da conta; aumentar invalida os já emitidos (logout, troca de senha). Migração `002_seguranca.sql` |
 | criado_em | data-hora | Não | |
 
 ### PROFISSIONAL — perfil de quem emite o orçamento (RF01)

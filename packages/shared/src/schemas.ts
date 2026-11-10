@@ -32,17 +32,37 @@ const telefoneOpcional = z
 
 // ---------------------------------------------------------------- Conta
 
+/** O bcrypt só considera os primeiros 72 bytes: o limite vale em bytes, não em caracteres. */
+const senhaNova = z
+  .string()
+  .min(8, 'A senha deve ter pelo menos 8 caracteres')
+  .max(72, 'Senha muito longa')
+  .refine((s) => new TextEncoder().encode(s).length <= 72, 'Senha muito longa');
+
+const senhaInformada = (mensagem: string) => z.string({ required_error: mensagem }).min(1, mensagem).max(72, 'Senha incorreta');
+
 export const cadastroSchema = z.object({
   email: z.string().trim().toLowerCase().min(1, 'Informe seu e-mail').email('E-mail inválido').max(120),
-  senha: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres').max(72, 'Senha muito longa'),
+  senha: senhaNova,
 });
 export type CadastroInput = z.input<typeof cadastroSchema>;
 
 export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().min(1, 'Informe seu e-mail').email('E-mail inválido'),
-  senha: z.string().min(1, 'Informe sua senha'),
+  email: z.string().trim().toLowerCase().min(1, 'Informe seu e-mail').email('E-mail inválido').max(120, 'E-mail inválido'),
+  senha: z.string().min(1, 'Informe sua senha').max(72, 'Senha muito longa'),
 });
 export type LoginInput = z.input<typeof loginSchema>;
+
+export const alterarSenhaSchema = z.object({
+  senhaAtual: senhaInformada('Informe sua senha atual'),
+  novaSenha: senhaNova,
+});
+export type AlterarSenhaInput = z.input<typeof alterarSenhaSchema>;
+
+export const excluirContaSchema = z.object({
+  senha: senhaInformada('Informe sua senha para confirmar'),
+});
+export type ExcluirContaInput = z.input<typeof excluirContaSchema>;
 
 // ---------------------------------------------------------------- Perfil (RF01, CA01.3)
 

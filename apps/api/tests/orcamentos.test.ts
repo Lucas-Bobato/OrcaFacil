@@ -243,11 +243,11 @@ describe('04 Gerar PDF (US06, US07, RN10)', () => {
     expect(editado.body.documentoAtual).not.toBeNull();
     expect((await ctx.http.get(`/api/orcamentos/${o.id}/pdf`).set(auth)).status).toBe(200);
 
-    // Reemitir gera um novo documento vigente
+    // Reemitir gera um novo documento vigente, que substitui o anterior
     const reemitido = await ctx.http.post(`/api/orcamentos/${o.id}/emitir`).set(auth);
     expect(reemitido.body.status).toBe('EMITIDO');
     const { n } = ctx.db.prepare('SELECT COUNT(*) AS n FROM documento_pdf WHERE orcamento_id = ?').get(o.id) as { n: number };
-    expect(n).toBe(2);
+    expect(n).toBe(1);
   });
 
   it('RN10 — adicionar item ou alterar o cliente de um emitido também volta para Rascunho', async () => {

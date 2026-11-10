@@ -11,6 +11,7 @@ const app = criarApp({
   jwtSecret: config.jwtSecret,
   jwtExpiraEm: config.jwtExpiraEm,
   corsOrigin: config.corsOrigin,
+  trustProxy: config.trustProxy,
 });
 
 const servidor = app.listen(config.porta, () => {

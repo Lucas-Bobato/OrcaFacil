@@ -161,10 +161,11 @@ A pasta `apps/web/dist` é estática (pode ir para a Vercel/qualquer CDN); defin
 |---|---|---|
 | `PORT` | `3333` | Porta HTTP da API |
 | `DATABASE_PATH` | `./data/orcafacil.db` | Caminho do arquivo SQLite (relativo a `apps/api`) |
-| `JWT_SECRET` | valor de desenvolvimento | Segredo dos tokens. **Obrigatório** com `NODE_ENV=production` |
+| `JWT_SECRET` | temporário, por processo | Segredo dos tokens. Com `NODE_ENV=production` é **obrigatório**, com pelo menos 32 caracteres e diferente dos valores de exemplo |
 | `JWT_EXPIRES_IN` | `7d` | Validade do token (`12h`, `7d`…) |
 | `CORS_ORIGIN` | `http://localhost:5173` | Origens permitidas, separadas por vírgula |
-| `NODE_ENV` | — | `production` exige `JWT_SECRET` |
+| `TRUST_PROXY` | desligado | Número de proxies confiáveis à frente da API. **Defina ao publicar atrás de um proxy**, senão todos os clientes dividem os mesmos limites de tentativas |
+| `NODE_ENV` | — | `production` exige um `JWT_SECRET` forte e bloqueia o `db:seed` |
 
 **Interface** — `apps/web/.env` (modelo em [`apps/web/.env.example`](apps/web/.env.example)):
 
@@ -256,6 +257,7 @@ Rastreabilidade de cada critério de aceite para os testes: [docs/07-testes.md](
 | 5 | [Modelagem de Dados (DER)](docs/05-modelagem-dados.md) | DER, dicionário de dados, implementação SQLite |
 | 6 | [API](docs/06-api.md) | Endpoints, regras, erros e exemplos |
 | 7 | [Testes](docs/07-testes.md) | Suítes, como executar e rastreabilidade |
+| 8 | [Segurança](docs/08-seguranca.md) | Relatório de vulnerabilidades, correções e riscos que permanecem |
 
 ### Rastreabilidade (visão rápida)
 
