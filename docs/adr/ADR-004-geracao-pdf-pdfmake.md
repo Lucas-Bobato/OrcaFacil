@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | ✅ Aprovado |
+| **Status** | ✅ Aprovado — alterado pelo [ADR-006](ADR-006-api-rest-sqlite-contas.md): o PDF passa a ser gerado no servidor (mesma biblioteca) |
 | **Data** | 08/10/2026 |
 | **Requisitos relacionados** | RF10, RF11, RNF01, RNF04, RNF06, RNF07, RNF08 |
 

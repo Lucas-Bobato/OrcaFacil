@@ -1,21 +1,33 @@
 # 5. Modelagem de Dados (DER)
 
-[← Voltar ao README](../README.md) · Decisão relacionada: [ADR-003 — IndexedDB com Dexie.js](adr/ADR-003-banco-de-dados-indexeddb-dexie.md)
+[← Voltar ao README](../README.md) · Decisão relacionada: [ADR-006 — API REST com SQLite e contas](adr/ADR-006-api-rest-sqlite-contas.md)
 
-O modelo abaixo é **relacional no nível lógico**. Fisicamente ele é implementado em **IndexedDB** (uma *object store* por entidade), e a integridade referencial é garantida pela camada de Repositórios da aplicação. Uma versão em SQL (DDL) é fornecida na seção 5.5 para documentação e para uma eventual migração a um banco relacional.
+O modelo abaixo é implementado em **SQLite** pela migração [`apps/api/src/db/migrations/001_inicial.sql`](../apps/api/src/db/migrations/001_inicial.sql), com chaves primárias, chaves estrangeiras (`PRAGMA foreign_keys = ON`), restrições `CHECK`/`UNIQUE`, índices e um *trigger*. Uma versão equivalente para PostgreSQL está na seção 5.5 como referência para uma futura migração.
+
+> **Mudanças em relação à versão local-first** (ADR-006): entrou a entidade **USUARIO** (conta de acesso, 1:1 com PROFISSIONAL); a numeração passou a ser **por profissional e ano**; `ORCAMENTO.cliente_id` pode ficar vazio **apenas enquanto RASCUNHO** (orçamento recém-criado ou duplicado — CA08.4).
 
 ## 5.1 Diagrama Entidade-Relacionamento
 
 ```mermaid
 erDiagram
+    USUARIO ||--|| PROFISSIONAL : "possui"
     PROFISSIONAL ||--o{ CLIENTE : "cadastra"
     PROFISSIONAL ||--o{ ORCAMENTO : "emite"
     CLIENTE ||--o{ ORCAMENTO : "recebe"
     ORCAMENTO ||--|{ ITEM_SERVICO : "contém (1..50)"
     ORCAMENTO ||--o{ DOCUMENTO_PDF : "gera"
+    PROFISSIONAL ||--o{ SEQUENCIA_NUMERACAO : "numera"
+
+    USUARIO {
+        uuid id PK
+        string email UK "único, sem diferenciar maiúsculas"
+        string senha_hash "bcrypt"
+        datetime criado_em
+    }
 
     PROFISSIONAL {
         uuid id PK
+        uuid usuario_id FK "UK — 1 perfil por conta"
         string nome "obrigatório se nome_empresa vazio"
         string nome_empresa "opcional"
         string documento "CPF/CNPJ, opcional"
@@ -40,7 +52,7 @@ erDiagram
         uuid id PK
         string numero UK "ORC-AAAA-NNNN"
         uuid profissional_id FK
-        uuid cliente_id FK
+        uuid cliente_id FK "obrigatório quando EMITIDO"
         enum status "RASCUNHO | EMITIDO"
         int prazo_execucao_dias "1-365"
         int validade_dias "1-90, padrão 15"
@@ -75,32 +87,45 @@ erDiagram
     }
 
     SEQUENCIA_NUMERACAO {
+        uuid profissional_id PK "FK"
         int ano PK
         int ultimo_numero
     }
 ```
 
-> `SEQUENCIA_NUMERACAO` é uma tabela de controle (sem relacionamentos) que garante a numeração única e não reutilizável dos orçamentos (RN07).
+> `SEQUENCIA_NUMERACAO` é uma tabela de controle que garante a numeração única e não reutilizável dos orçamentos de cada profissional (RN07). Um *trigger* impede que o número seja decrementado.
 
 ## 5.2 Relacionamentos e cardinalidades
 
 | Relacionamento | Cardinalidade | Descrição | Regra na exclusão |
 |---|---|---|---|
-| PROFISSIONAL → CLIENTE | 1 : 0..N | Um profissional cadastra vários clientes. | Exclusão do perfil (apagar dados — RNF21) remove tudo. |
+| USUARIO → PROFISSIONAL | 1 : 0..1 | Cada conta tem um perfil (criado no 1º acesso — CA01.1). | **Cascata**: apagar a conta (RNF21) remove tudo. |
+| PROFISSIONAL → CLIENTE | 1 : 0..N | Um profissional cadastra vários clientes. | **Cascata**. |
 | PROFISSIONAL → ORCAMENTO | 1 : 0..N | Um profissional emite vários orçamentos. | Idem. |
-| CLIENTE → ORCAMENTO | 1 : 0..N | Um cliente pode receber vários orçamentos; cada orçamento pertence a exatamente 1 cliente. | **Restrita**: cliente com orçamentos não pode ser excluído. |
+| CLIENTE → ORCAMENTO | 1 : 0..N | Um cliente pode receber vários orçamentos; cada orçamento emitido pertence a exatamente 1 cliente. | **Restrita** (`NO ACTION`): cliente com orçamentos não pode ser excluído (API responde 409). |
 | ORCAMENTO → ITEM_SERVICO | 1 : 1..50 | Composição: itens não existem fora do orçamento (RN09). Um rascunho pode ter 0 itens temporariamente; para emitir, ≥ 1. | **Cascata**. |
-| ORCAMENTO → DOCUMENTO_PDF | 1 : 0..N | Cada emissão gera um PDF; o mais recente é o vigente (RN10). | **Cascata**. |
+| ORCAMENTO → DOCUMENTO_PDF | 1 : 0..1 | Cada emissão gera um PDF, que substitui o anterior (RN10). A tabela não impõe a unicidade; o serviço de emissão apaga o anterior na mesma transação. | **Cascata**. |
 
-> No MVP existe **um único perfil** por aparelho, mas o modelo mantém `profissional_id` para permitir múltiplos perfis/empresas e sincronização em nuvem no futuro sem reestruturar os dados.
+> Todas as consultas da API filtram pelo `profissional_id` da sessão: um usuário nunca enxerga dados de outro (a API responde 404).
 
 ## 5.3 Dicionário de dados
+
+### USUARIO — conta de acesso (ADR-006)
+
+| Atributo | Tipo | Nulo | Restrições / Observações |
+|---|---|---|---|
+| id | UUID v4 | Não | PK |
+| email | texto (120) | Não | **Único** (`COLLATE NOCASE`); normalizado para minúsculas |
+| senha_hash | texto | Não | Hash bcrypt (custo 10); a senha nunca é armazenada nem devolvida |
+| token_versao | inteiro | Não | Versão dos tokens da conta; aumentar invalida os já emitidos (logout, troca de senha). Migração `002_seguranca.sql` |
+| criado_em | data-hora | Não | |
 
 ### PROFISSIONAL — perfil de quem emite o orçamento (RF01)
 
 | Atributo | Tipo | Nulo | Restrições / Observações |
 |---|---|---|---|
 | id | UUID v4 | Não | PK |
+| usuario_id | UUID | Não | FK → USUARIO.id (cascata); **único** (1 perfil por conta) |
 | nome | texto (80) | Sim* | *Obrigatório se `nome_empresa` for nulo (RN01) |
 | nome_empresa | texto (80) | Sim | Exibido em destaque no cabeçalho do PDF quando informado |
 | documento | texto (18) | Sim | CPF (11 dígitos) ou CNPJ (14 dígitos), validado por dígito verificador; armazenado só com números |
@@ -125,9 +150,9 @@ erDiagram
 | Atributo | Tipo | Nulo | Restrições / Observações |
 |---|---|---|---|
 | id | UUID v4 | Não | PK |
-| numero | texto (13) | Não | **Único**; formato `ORC-AAAA-NNNN` (RN07) |
+| numero | texto (13) | Não | **Único por profissional**; formato `ORC-AAAA-NNNN` (RN07, CHECK com `GLOB`) |
 | profissional_id | UUID | Não | FK → PROFISSIONAL.id |
-| cliente_id | UUID | Não | FK → CLIENTE.id |
+| cliente_id | UUID | Sim* | FK → CLIENTE.id; *obrigatório quando `EMITIDO` (CHECK) |
 | status | enum | Não | `RASCUNHO` (padrão) ou `EMITIDO` (RN10) |
 | prazo_execucao_dias | inteiro | Sim* | 1–365; *obrigatório para emitir (RN05) |
 | validade_dias | inteiro | Não | 1–90; padrão 15 (RN06) |
@@ -167,61 +192,52 @@ erDiagram
 
 | Atributo | Tipo | Nulo | Restrições / Observações |
 |---|---|---|---|
-| ano | inteiro | Não | PK (ex.: 2026) |
-| ultimo_numero | inteiro | Não | Incrementado em transação ao criar orçamento; nunca decrementado |
+| profissional_id | UUID | Não | PK composta; FK → PROFISSIONAL.id (cascata) |
+| ano | inteiro | Não | PK composta (ex.: 2026) |
+| ultimo_numero | inteiro | Não | Incrementado em transação ao criar orçamento (`INSERT … ON CONFLICT DO UPDATE … RETURNING`); *trigger* impede decrementar |
 
-## 5.4 Implementação física — esquema Dexie.js (IndexedDB)
+## 5.4 Implementação física — SQLite
 
-```ts
-// src/infra/db/database.ts
-import Dexie, { type Table } from 'dexie';
-import type {
-  Profissional, Cliente, Orcamento, ItemServico, DocumentoPdf, SequenciaNumeracao,
-} from '@/domain';
+| Item | Onde |
+|---|---|
+| Migração (DDL completa) | [`apps/api/src/db/migrations/001_inicial.sql`](../apps/api/src/db/migrations/001_inicial.sql) |
+| Conexão e executor de migrações | [`apps/api/src/db/connection.ts`](../apps/api/src/db/connection.ts) — liga `foreign_keys`, WAL e registra a função `normalizar()` (busca sem acentos) |
+| Dados iniciais (seed) | [`apps/api/src/db/seed.ts`](../apps/api/src/db/seed.ts) — usuário demo, perfil, 3 clientes e 3 orçamentos (2 emitidos com PDF, 1 rascunho) |
+| Testes das restrições | [`apps/api/tests/clientes-banco.test.ts`](../apps/api/tests/clientes-banco.test.ts) |
 
-export class OrcaFacilDB extends Dexie {
-  profissionais!: Table<Profissional, string>;
-  clientes!: Table<Cliente, string>;
-  orcamentos!: Table<Orcamento, string>;
-  itensServico!: Table<ItemServico, string>;
-  documentosPdf!: Table<DocumentoPdf, string>;
-  sequencias!: Table<SequenciaNumeracao, number>;
+Restrições de integridade implementadas:
 
-  constructor() {
-    super('orcafacil-db');
-    // Sintaxe Dexie: 1º campo = PK; '&' = índice único; '[a+b]' = índice composto
-    this.version(1).stores({
-      profissionais: 'id',
-      clientes:      'id, profissionalId, nome',
-      orcamentos:    'id, &numero, profissionalId, clienteId, status, atualizadoEm',
-      itensServico:  'id, orcamentoId, [orcamentoId+ordem]',
-      documentosPdf: 'id, orcamentoId, geradoEm',
-      sequencias:    'ano',
-    });
-  }
-}
+| Tipo | Restrições |
+|---|---|
+| **Chaves primárias** | UUID (`TEXT`) em todas as entidades; PK composta `(profissional_id, ano)` em `sequencia_numeracao` |
+| **Chaves estrangeiras** | `profissional.usuario_id`, `cliente.profissional_id`, `orcamento.profissional_id`, `orcamento.cliente_id`, `item_servico.orcamento_id`, `documento_pdf.orcamento_id`, `sequencia_numeracao.profissional_id` |
+| **Únicas** | `usuario.email`, `profissional.usuario_id`, `(orcamento.profissional_id, numero)`, `(item_servico.orcamento_id, ordem)` |
+| **CHECK** | nome **ou** empresa (RN01a); tamanhos de texto; telefone 10–11 dígitos; CPF/CNPJ 11/14 dígitos; status e etapa válidos; prazo 1–365 (RN05); validade 1–90 (RN06); quantidade > 0 e ≤ 99.999,99, valor > 0 e ≤ 9.999.999,99 (RN04); ordem 1–50 (RN09); PDF ≤ 3 MB (RNF06); emitido exige cliente, prazo e data de emissão |
+| **Trigger** | `trg_sequencia_nao_decrementa` — números nunca são reutilizados (RN07) |
+| **Índices** | `idx_cliente_profissional_nome`, `idx_orcamento_profissional_atualizado` (lista ordenada — CA08.1), `idx_orcamento_cliente`, `idx_documento_orcamento` (PDF vigente) |
 
-export const db = new OrcaFacilDB();
-```
-
-Exemplo de operação atômica — **emitir orçamento** (RN10, RN13):
+Exemplo de operação atômica — **emitir orçamento** (RN10, RN13), em [`orcamentoService.ts`](../apps/api/src/services/orcamentoService.ts):
 
 ```ts
-await db.transaction('rw', db.orcamentos, db.documentosPdf, async () => {
-  await db.documentosPdf.add(documento);
-  await db.orcamentos.update(orcamento.id, {
-    status: 'EMITIDO',
-    dataEmissao: hoje,
-    atualizadoEm: agora,
-  });
-});
+db.transaction(() => {
+  documentosRepo.inserir(db, { id, orcamentoId, nomeArquivo, tamanhoBytes, hashSha256, conteudo: pdf, geradoEm: agora });
+  orcamentosRepo.atualizar(db, orcamentoId, { status: 'EMITIDO', dataEmissao, totalCentavos, etapaAtual: 'REVISAR' }, agora);
+})();
 ```
 
-## 5.5 Equivalente relacional (DDL SQL — referência)
+## 5.5 Equivalente relacional (DDL PostgreSQL — referência)
 
 ```sql
+CREATE TABLE usuario (
+  id          UUID PRIMARY KEY,
+  email       VARCHAR(120) NOT NULL UNIQUE,
+  senha_hash  TEXT         NOT NULL,
+  criado_em   TIMESTAMP    NOT NULL
+);
+
 CREATE TABLE profissional (
   id             UUID PRIMARY KEY,
+  usuario_id     UUID         NOT NULL UNIQUE REFERENCES usuario(id) ON DELETE CASCADE,
   nome           VARCHAR(80),
   nome_empresa   VARCHAR(80),
   documento      VARCHAR(14),
@@ -246,9 +262,9 @@ CREATE INDEX idx_cliente_nome ON cliente(nome);
 
 CREATE TABLE orcamento (
   id                   UUID PRIMARY KEY,
-  numero               VARCHAR(13)  NOT NULL UNIQUE,
+  numero               VARCHAR(13)  NOT NULL,
   profissional_id      UUID         NOT NULL REFERENCES profissional(id) ON DELETE CASCADE,
-  cliente_id           UUID         NOT NULL REFERENCES cliente(id) ON DELETE RESTRICT,
+  cliente_id           UUID         REFERENCES cliente(id) ON DELETE RESTRICT,
   status               VARCHAR(10)  NOT NULL DEFAULT 'RASCUNHO'
                                     CHECK (status IN ('RASCUNHO','EMITIDO')),
   prazo_execucao_dias  INTEGER      CHECK (prazo_execucao_dias BETWEEN 1 AND 365),
@@ -260,7 +276,8 @@ CREATE TABLE orcamento (
   data_emissao         DATE,
   criado_em            TIMESTAMP    NOT NULL,
   atualizado_em        TIMESTAMP    NOT NULL,
-  CHECK (status = 'RASCUNHO' OR (data_emissao IS NOT NULL AND prazo_execucao_dias IS NOT NULL))
+  UNIQUE (profissional_id, numero),
+  CHECK (status = 'RASCUNHO' OR (data_emissao IS NOT NULL AND prazo_execucao_dias IS NOT NULL AND cliente_id IS NOT NULL))
 );
 CREATE INDEX idx_orcamento_atualizado ON orcamento(atualizado_em DESC);
 
@@ -289,8 +306,10 @@ CREATE TABLE documento_pdf (
 CREATE INDEX idx_documento_orcamento ON documento_pdf(orcamento_id, gerado_em DESC);
 
 CREATE TABLE sequencia_numeracao (
-  ano            SMALLINT PRIMARY KEY,
-  ultimo_numero  INTEGER  NOT NULL DEFAULT 0
+  profissional_id  UUID     NOT NULL REFERENCES profissional(id) ON DELETE CASCADE,
+  ano              SMALLINT NOT NULL,
+  ultimo_numero    INTEGER  NOT NULL DEFAULT 0 CHECK (ultimo_numero >= 0),
+  PRIMARY KEY (profissional_id, ano)
 );
 ```
 
@@ -300,7 +319,7 @@ CREATE TABLE sequencia_numeracao (
 |---|---|
 | Valores monetários em **centavos inteiros** | Evita erros de ponto flutuante (ex.: `0.1 + 0.2 ≠ 0.3`) — RN08, RNF11. |
 | `total_centavos` e `subtotal_centavos` **persistidos** apesar de derivados | Permite listar orçamentos sem carregar itens; recalculados pelo Domínio a cada alteração, nunca editados manualmente (RN02). |
-| **UUID** como chave primária | Gerado no aparelho sem servidor; evita colisões em uma futura sincronização em nuvem. |
+| **UUID** como chave primária | Não expõe a quantidade de registros nas URLs e evita colisões numa futura sincronização offline. |
 | PDF armazenado como **snapshot** (`DOCUMENTO_PDF.conteudo`) | Garante que o documento enviado ao cliente não muda se o perfil ou o cliente forem editados depois (RN11). |
 | Tabela `SEQUENCIA_NUMERACAO` separada | Garante números não reutilizados mesmo após exclusões (RN07). |
 | `CLIENTE` como entidade própria (e não texto dentro do orçamento) | Permite reaproveitar o cliente em novos orçamentos e buscar por cliente (RF12). |

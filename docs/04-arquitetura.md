@@ -4,63 +4,69 @@
 
 ## 4.1 Visão geral
 
-O OrçaFácil é uma **Progressive Web App (PWA) local-first**: todo o processamento (validação, cálculo, persistência e geração do PDF) acontece **no navegador do aparelho**. O servidor apenas entrega arquivos estáticos (HTML, JS, CSS, ícones) via CDN. Depois do primeiro acesso, o Service Worker mantém o app em cache e ele funciona sem internet.
+O OrçaFácil é composto por uma **interface web (PWA React)** e uma **API REST (Node.js + Express)** que guarda os dados em **SQLite**. O usuário cria uma conta e acessa os mesmos orçamentos em qualquer navegador ou aparelho. As regras de negócio ficam num pacote de **domínio compartilhado** (`packages/shared`), usado pela interface (validação imediata e cálculo na tela) e pela API (validação definitiva e persistência).
 
-Decisões que fundamentam essa arquitetura: [ADR-001](adr/ADR-001-arquitetura-local-first-pwa.md) (local-first), [ADR-002](adr/ADR-002-frontend-react-typescript-vite.md) (frontend), [ADR-003](adr/ADR-003-banco-de-dados-indexeddb-dexie.md) (banco), [ADR-004](adr/ADR-004-geracao-pdf-pdfmake.md) (PDF), [ADR-005](adr/ADR-005-hospedagem-vercel.md) (hospedagem).
+Decisão que fundamenta a arquitetura atual: [ADR-006 — API REST com SQLite e contas](adr/ADR-006-api-rest-sqlite-contas.md), que substitui a abordagem local-first do [ADR-001](adr/ADR-001-arquitetura-local-first-pwa.md). Continuam válidos o [ADR-002](adr/ADR-002-frontend-react-typescript-vite.md) (frontend) e o [ADR-004](adr/ADR-004-geracao-pdf-pdfmake.md) (pdfmake, agora no servidor).
 
 ## 4.2 Diagrama de contexto (C4 — nível 1)
 
 ```mermaid
 flowchart TB
-    prof(["👷 Prestador de serviço<br/>(usa no celular)"])
+    prof(["👷 Prestador de serviço<br/>(celular ou computador)"])
     cli(["🙋 Cliente final"])
-    app["OrçaFácil (PWA)<br/>Cria orçamentos e gera PDF"]
-    cdn["Vercel CDN<br/>Entrega arquivos estáticos"]
+    web["OrçaFácil Web (PWA)<br/>Monta orçamentos"]
+    api["OrçaFácil API<br/>Regras, dados e PDF"]
+    db[("SQLite")]
     wa["WhatsApp / Arquivos do aparelho"]
 
-    prof -- "preenche dados, gera PDF" --> app
-    app -- "baixa o app (1º acesso / atualizações)" --> cdn
-    app -- "PDF via download ou Web Share" --> wa
+    prof -- "preenche dados, gera PDF" --> web
+    web -- "HTTPS + JSON (JWT)" --> api
+    api --> db
+    web -- "PDF via download ou Web Share" --> wa
     wa -- "envia PDF" --> cli
 ```
 
-## 4.3 Diagrama de contêineres e componentes (C4 — níveis 2/3)
+## 4.3 Contêineres e componentes (C4 — níveis 2/3)
 
 ```mermaid
 flowchart TB
-    subgraph Device["📱 Navegador do aparelho"]
+    subgraph Navegador["📱 Navegador (apps/web)"]
         direction TB
-        SW["Service Worker<br/>(Workbox — cache offline)"]
-        subgraph SPA["Aplicação React (SPA)"]
-            direction TB
-            UI["Camada de Apresentação<br/>Páginas · Componentes · Formulários"]
-            ST["Estado da aplicação<br/>Hooks + Zustand (rascunho atual)"]
-            DOM["Camada de Domínio<br/>Orçamento · Item · Money · Regras (RN01–RN14)<br/>Validação (Zod)"]
-            SVC["Serviços de Aplicação<br/>OrcamentoService · PerfilService · NumeracaoService"]
-            PDF["Gerador de PDF<br/>pdfmake (carregado sob demanda)"]
-            REPO["Repositórios<br/>Dexie.js"]
-        end
-        IDB[("IndexedDB<br/>orcafacil-db")]
+        UI["Páginas e componentes<br/>T0–T5, Perfil, Privacidade, Acesso"]
+        Q["Estado do servidor<br/>TanStack Query + autosave"]
+        C["Cliente HTTP<br/>fetch + token JWT"]
+        UI --> Q --> C
     end
-    CDN["☁️ Vercel CDN<br/>(HTML, JS, CSS, ícones)"]
+    subgraph Shared["📦 packages/shared (domínio puro)"]
+        DOM["Money (centavos) · cálculo de total<br/>pendências de emissão (RN01) · numeração<br/>schemas Zod (RN04, RN05, RN06)"]
+    end
+    subgraph API["🖥️ API (apps/api)"]
+        direction TB
+        R["Rotas Express + middlewares<br/>auth JWT · perfil exigido · erros"]
+        S["Serviços (casos de uso)<br/>auth · perfil · clientes · orçamentos · itens · emissão"]
+        P["Gerador de PDF<br/>pdfmake"]
+        RP["Repositórios<br/>SQL (better-sqlite3)"]
+        R --> S --> RP
+        S --> P
+    end
+    DB[("SQLite<br/>orcafacil.db")]
 
-    UI --> ST --> SVC
-    SVC --> DOM
-    SVC --> REPO --> IDB
-    SVC --> PDF
-    SW -- "precache / atualização" --> CDN
-    SW -. "serve arquivos offline" .-> SPA
+    C -- "REST /api" --> R
+    UI -. usa .-> DOM
+    S -. usa .-> DOM
+    RP --> DB
 ```
 
 ### Responsabilidades por camada
 
-| Camada | Responsabilidade | Regra de dependência |
-|---|---|---|
-| **Apresentação** (`src/ui`) | Telas, componentes, máscaras de entrada, feedback visual. | Depende de Estado e Serviços. Não acessa o banco diretamente. |
-| **Estado** (`src/state`) | Rascunho em edição, etapa atual, autosave com *debounce*. | Depende de Serviços. |
-| **Serviços** (`src/services`) | Casos de uso: criar orçamento, adicionar item, emitir, duplicar, excluir. | Orquestra Domínio, Repositórios e PDF. |
-| **Domínio** (`src/domain`) | Entidades, value object `Money` (centavos), cálculo do total, validações e regras de negócio. **Código puro**, sem dependência de React ou do banco. | Não depende de nenhuma outra camada. |
-| **Infraestrutura** (`src/infra`) | Repositórios Dexie, gerador pdfmake, Web Share/download. | Implementa interfaces definidas no Domínio/Serviços. |
+| Camada | Pasta | Responsabilidade | Regra de dependência |
+|---|---|---|---|
+| **Domínio** | `packages/shared/src` | `Money` em centavos, subtotal/total, pendências para emissão, numeração, nome do arquivo, schemas Zod e DTOs. **Código puro**, sem React nem banco. | Não depende de nenhuma outra camada. |
+| **Apresentação** | `apps/web/src/pages`, `components` | Telas do protótipo, máscaras, estados de carregamento/erro/sucesso. | Usa Domínio e o cliente HTTP. |
+| **Estado/Integração** | `apps/web/src/api`, `lib` | Hooks de consulta e mutação (TanStack Query), autosave com *debounce*, download/compartilhamento. | Fala com a API apenas por HTTP. |
+| **Rotas** | `apps/api/src/routes.ts`, `middleware/` | Endpoints REST, autenticação, conversão de erros para o formato padrão. | Chama Serviços. |
+| **Serviços** | `apps/api/src/services` | Casos de uso e regras RN01–RN14 (numeração, total, ciclo de vida, limite de itens, emissão). | Usa Domínio, Repositórios e PDF. |
+| **Infraestrutura** | `apps/api/src/repositories`, `db/`, `pdf/` | SQL, migrações, conexão SQLite, geração do PDF. | Implementa o que os Serviços precisam. |
 
 ## 4.4 Fluxo principal — Gerar PDF (sequência)
 
@@ -68,61 +74,68 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor P as Profissional
-    participant UI as Tela Revisar
+    participant UI as Tela Revisar (web)
+    participant API as API /orcamentos/:id/emitir
     participant S as OrcamentoService
-    participant D as Domínio (regras)
-    participant G as Gerador PDF (pdfmake)
-    participant R as Repositório (Dexie)
-    participant DB as IndexedDB
+    participant D as Domínio (shared)
+    participant G as pdfmake
+    participant DB as SQLite
 
     P->>UI: Toca em "Gerar PDF"
-    UI->>S: emitir(orcamentoId)
-    S->>R: carregar orçamento + itens + perfil
-    R->>DB: get()
-    DB-->>R: dados
-    S->>D: validarEmissao(orcamento) [RN01, RN04, RN05, RN09]
-    alt inválido
-        D-->>S: erros
-        S-->>UI: lista de pendências
-        UI-->>P: mostra o que falta
+    Note over UI,D: o botão só habilita quando<br/>pendenciasEmissao() está vazia (RN01)
+    UI->>API: PUT condições pendentes (autosave) + POST /emitir
+    API->>S: emitir(profissional, id)
+    S->>DB: carrega orçamento, cliente e itens
+    S->>D: pendenciasEmissao() [RN01, RN05, RN09]
+    alt há pendências
+        S-->>API: 422 EMISSAO_BLOQUEADA + pendencias
+        API-->>UI: mostra o que falta
     else válido
-        D-->>S: ok + total recalculado [RN02, RN08]
-        S->>G: gerar(docDefinition) — import() sob demanda
-        G-->>S: Blob PDF (≤ 3 MB)
-        S->>R: salvar DocumentoPdf + status = EMITIDO [RN10, RN13]
-        R->>DB: transação (orcamento, documento_pdf)
-        S-->>UI: blob + nome do arquivo [RN12]
+        S->>G: gerarPdf(dados) [RN03, RN06, RN12]
+        G-->>S: Buffer (≤ 3 MB)
+        S->>DB: transação: INSERT documento_pdf + status EMITIDO, data_emissao [RN10, RN13]
+        S-->>API: orçamento atualizado
+        API-->>UI: 200 + documentoAtual
+        UI->>API: GET /orcamentos/:id/pdf
+        API-->>UI: application/pdf (Orcamento_<numero>_<cliente>.pdf)
         UI-->>P: pré-visualização + Baixar / Compartilhar
     end
 ```
 
-## 4.5 Estrutura de pastas proposta
+## 4.5 Estrutura de pastas
 
 ```
-src/
-├── domain/            # Regras puras (100% testáveis)
-│   ├── money.ts       # Money em centavos, formatação BRL
-│   ├── orcamento.ts   # Entidade, cálculo de total, ciclo de vida
-│   ├── item.ts
-│   └── schemas.ts     # Schemas Zod (RN01, RN04, RN05, RN06)
-├── services/          # Casos de uso
-├── infra/
-│   ├── db/            # Dexie: schema, migrações, repositórios
-│   ├── pdf/           # docDefinition do pdfmake
-│   └── share/         # Download e Web Share API
-├── state/             # Store do rascunho + autosave
-├── ui/
-│   ├── pages/         # T0..T5 (ver prototipação)
-│   └── components/
-└── main.tsx
+.
+├── packages/shared/          # Domínio compartilhado (TypeScript puro)
+│   ├── src/money.ts          # centavos ↔ BRL, máscara
+│   ├── src/orcamento.ts      # subtotal, total, pendências, validade
+│   ├── src/numeracao.ts      # ORC-AAAA-NNNN, nome do arquivo
+│   ├── src/documento.ts      # CPF/CNPJ, telefone
+│   ├── src/schemas.ts        # validações Zod (mensagens dos CAs)
+│   └── tests/
+├── apps/api/                 # API REST
+│   ├── openapi.yaml          # documentação dos endpoints (Swagger em /api/docs)
+│   ├── src/db/               # conexão, migrações SQL, seed
+│   ├── src/repositories/     # acesso a dados
+│   ├── src/services/         # regras de negócio
+│   ├── src/pdf/              # layout do PDF
+│   ├── src/middleware/       # auth e tratamento de erros
+│   └── tests/                # Vitest + supertest
+├── apps/web/                 # Interface (React + Vite + Tailwind)
+│   ├── src/pages/            # T0..T5, Perfil, Privacidade, Acesso
+│   ├── src/components/       # biblioteca do protótipo
+│   ├── src/api/              # cliente HTTP e hooks
+│   └── tests/                # Testing Library
+└── e2e/                      # Playwright (fluxo completo)
 ```
 
 ## 4.6 Estratégia de qualidade
 
 | Nível | Ferramenta | Foco |
 |---|---|---|
-| Unitário | Vitest | Domínio: `Money`, cálculo, arredondamento, validações, numeração |
-| Componente | Testing Library | Formulários, máscaras, habilitação do botão "Gerar PDF" |
-| E2E | Playwright (Chromium, WebKit, Firefox) | Fluxo completo, offline, tempo de geração do PDF, persistência |
-| Desempenho | Lighthouse CI, size-limit | RNF03, RNF04, RNF05, RNF15, RNF24 |
-| CI/CD | GitHub Actions + Vercel | Lint, `tsc`, testes, build; preview por PR e deploy na `main` |
+| Unitário | Vitest | Domínio: `Money`, arredondamento, validações, numeração, CPF/CNPJ |
+| Integração da API | Vitest + supertest + SQLite em memória | Endpoints, regras de negócio, erros, isolamento entre usuários, restrições do banco |
+| Componente | Vitest + Testing Library | Formulários, máscaras, habilitação do "Gerar PDF", Desfazer, estados de carregamento/erro |
+| E2E | Playwright (Chromium, viewport Pixel 7) | Fluxo completo web → API → SQLite, mesmo dado em outro navegador, 360 px, apagar dados |
+
+Detalhes e rastreabilidade dos testes: [07-testes.md](07-testes.md).

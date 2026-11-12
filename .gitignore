@@ -4,3 +4,19 @@ dist/
 .DS_Store
 Thumbs.db
 ~$*
+
+# Banco SQLite e variáveis de ambiente
+apps/api/data/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
+coverage/
+playwright-report/
+test-results/
+e2e/.tmp/

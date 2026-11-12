@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | ✅ Aprovado |
+| **Status** | ⛔ Substituído pelo [ADR-006](ADR-006-api-rest-sqlite-contas.md) |
 | **Data** | 08/10/2026 |
 | **Requisitos relacionados** | RF01, RF12, RF13, RNF08, RNF10, RNF18, RNF21 · [Modelagem de dados](../05-modelagem-dados.md) |
 
